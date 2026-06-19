@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+          'framer': path.resolve(__dirname, './framer-mock.js'),
+          'https://esm.sh/three@0.160.0': path.resolve(__dirname, './node_modules/three'),
         }
       }
     };

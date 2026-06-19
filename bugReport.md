@@ -1,6 +1,7 @@
 # Bug Report - Jelly GPGPU
 
 ## Resolved Issues
+- **Framer Canvas Error (Component file does not exist)**: Resolved local module resolution failure in the Framer canvas. The `NavigationControl.tsx` component was importing `AnimatedNavigation` from an external and expired/inaccessible Framer URL (`https://framer.com/m/...`). Changed the reference to import the local file `./AnimatedNavigation` instead. Renamed the parent directory from `Framer/Native Component & Controller` to `Framer/NativeComponents`/ to eliminate spaces and special character ampersands that broke local development path parsers.
 - **Uncaught Error: Maximum update depth exceeded**: Fixed infinite render loop caused by `ColorPicker` re-registering and syncing parent state callbacks inside `useEffect` on every render. Cleaned up state flow by computing live values and binding update handlers directly in `Home.tsx`'s render loop, ensuring `activePickers` only tracks open window configurations without feedback cycles.
 - **Skeleton Overhead**: Removed `WiggleBone` and `Skeleton` boilerplate.
 - **Edge cases**: Fixed vertex-to-pixel mapping for non-power-of-two geometry counts.

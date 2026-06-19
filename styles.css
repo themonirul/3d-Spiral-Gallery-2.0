@@ -12,3 +12,57 @@ body {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
+
+#detail-popup {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translate(-50%, 100px); /* Tucked away off-screen below */
+    background: rgba(15, 15, 15, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 20px 12px 14px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+    z-index: 100;
+}
+
+#detail-popup.active {
+    transform: translate(-50%, 0); /* Smooth elegant slide up */
+    opacity: 1;
+}
+
+#popup-thumb {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.popup-text-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.popup-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 2px;
+}
+
+#popup-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+

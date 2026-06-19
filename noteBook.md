@@ -140,6 +140,19 @@
     - Simplified logic intent into readable semantic transformation rules, replacing arbitrary YAML configurations with distinct, typed Graph definitions.
     - **Follow-up:** Appended a complete Navier-Stokes Stable Fluid Simulation example mapped entirely into `@compute` and `@fragment` node contracts.
 - **IPO Optimization (Input-Process-Output Refactor)**: Refactored nodes to reside strictly inside the **Process** layer. Removed explicit "Input" and "Output" node types, letting the outer IPO structure naturally bind data structures (Uniforms, Texture buffers, Framebuffers) to the processing pipeline for cleaner, modular composition.
+ 
+ 
++## 2026-06-19: Framer Canvas Local Import & Folder Sanitation
++- **Issue**: Users encountered an "Error in local-module:codeFile/... Component file does not exist" on their Framer design canvas inside `NavigationControl`.
++- **Cause**: 
++    1. `NavigationControl.tsx` was trying to import `AnimatedNavigation` via a remote, expired, or private Framer shortlink URL (`https://framer.com/m/...`) rather than referencing the local decompiled `AnimatedNavigation.tsx` module included directly in the `/Framer` folder.
++    2. The local directory carrying these components was named `Framer/Native Component & Controller/`. It contained raw ampersands (`&`) and blank spaces, which ran fine in custom build layers but caused absolute file system paths processing failures inside local developer utilities, preventing safe surgical edits.
++- **Solution**:
++    1. Sanitized path names by renaming the folder `Framer/Native Component & Controller/` to `Framer/NativeComponents/` via standard ES module Node script.
++    2. Changed the import statement inside `NavigationControl.tsx` from the remote URL to the local module path `./AnimatedNavigation`.
++    3. Fixed a missing `AnimatePresence` import syntax error in `Framer/StateLayer.tsx` to secure 100% clean linter validation.
++- **Result**: Framer can now compile the code files locally as co-located modules inside the canvas without external network dependence or path parsing bugs, completely resolving the canvas error.
+
 
 
 

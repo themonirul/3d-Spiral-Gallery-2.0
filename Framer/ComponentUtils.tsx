@@ -152,7 +152,7 @@ export const CompatibleMedia = ({
                         className="compat-text"
                         style={{
                             width: "100%",
-                            textAlign: (font?.align || "left").toLowerCase(),
+                            textAlign: (font?.align || "left").toLowerCase() as any,
                             color: useCompatibility
                                 ? font?.color || "#000"
                                 : "transparent",

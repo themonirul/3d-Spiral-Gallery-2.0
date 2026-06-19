@@ -557,24 +557,18 @@ const useTarget = (
                 const sizeAdjustedContent = nativeComponent.map((component) => {
                     if (!isReactElement(component)) return component
                     return cloneElement(component as React.ReactElement, {
-                        // @ts-expect-error this is Framer layer
                         style: {
-                            // @ts-expect-error this is Framer layer
-                            ...(component as React.ReactElement).props.style,
+                            ...(component as any).props.style,
                             width:
                                 componentWidth === "fill"
                                     ? "100%"
-                                    : // @ts-expect-error this is Framer layer
-                                      (component as React.ReactElement).props
-                                          .width,
+                                    : (component as any).props.width,
                             height:
                                 componentHeight === "fill"
                                     ? "100%"
-                                    : // @ts-expect-error this is Framer layer
-                                      (component as React.ReactElement).props
-                                          .height,
+                                    : (component as any).props.height,
                         },
-                    })
+                    } as any)
                 })
 
                 // Then apply the next variant while preserving size adjustments
@@ -601,24 +595,18 @@ const useTarget = (
                 const sizeAdjustedContent = nativeComponent.map((component) => {
                     if (!isReactElement(component)) return component
                     return cloneElement(component as React.ReactElement, {
-                        // @ts-expect-error this is Framer layer
                         style: {
-                            // @ts-expect-error this is Framer layer
-                            ...(component as React.ReactElement).props.style,
+                            ...(component as any).props.style,
                             width:
                                 componentWidth === "fill"
                                     ? "100%"
-                                    : // @ts-expect-error this is Framer layer
-                                      (component as React.ReactElement).props
-                                          .width,
+                                    : (component as any).props.width,
                             height:
                                 componentHeight === "fill"
                                     ? "100%"
-                                    : // @ts-expect-error this is Framer layer
-                                      (component as React.ReactElement).props
-                                          .height,
+                                    : (component as any).props.height,
                         },
-                    })
+                    } as any)
                 })
 
                 // Then apply the variant while preserving size adjustments
@@ -645,23 +633,18 @@ const useTarget = (
             const sizeAdjustedContent = nativeComponent.map((component) => {
                 if (!isReactElement(component)) return component
                 return cloneElement(component as React.ReactElement, {
-                    // @ts-expect-error this is Framer layer
                     style: {
-                        // @ts-expect-error this is Framer layer
-                        ...(component as React.ReactElement).props.style,
+                        ...(component as any).props.style,
                         width:
                             componentWidth === "fill"
                                 ? "100%"
-                                : // @ts-expect-error this is Framer layer
-                                  (component as React.ReactElement).props.width,
+                                : (component as any).props.width,
                         height:
                             componentHeight === "fill"
-                                ? "100%"
-                                : // @ts-expect-error this is Framer layer
-                                  (component as React.ReactElement).props
-                                      .height,
+                                  ? "100%"
+                                : (component as any).props.height,
                     },
-                })
+                } as any)
             })
             setClonedContent(sizeAdjustedContent)
         }

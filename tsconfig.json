@@ -21,8 +21,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "https://esm.sh/three@0.160.0": [
+        "node_modules/three"
       ]
     },
+    "baseUrl": ".",
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
