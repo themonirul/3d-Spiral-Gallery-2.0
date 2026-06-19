@@ -177,6 +177,7 @@ void main() {
 `;
 
 class HelixControls {
+  container: HTMLDivElement;
   easing = 0.1;
   minWheelSpeed = 0.002;
   wheelDirection = 1;
@@ -187,12 +188,160 @@ class HelixControls {
   scrollOffset = 0;
   normalizedMouse = new THREE.Vector2(0, 0);
   
+  isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   isDragging = false;
-  touchStartX = 0;
-  lastTouchX = 0;
-  touchVelocityX = 0;
+  isPaused = false;
   
-  constructor() {}
+  touchStartY = 0;
+  lastTouchY = 0;
+  touchVelocityY = 0;
+
+  // Event handler references for cleanup
+  private _handleWheel: (e: WheelEvent) => void;
+  private _handleMouseMove: (e: MouseEvent) => void;
+  private _handleMouseDown: (e: MouseEvent) => void;
+  private _handleMouseUp: () => void;
+  private _handleTouchStart: (e: TouchEvent) => void;
+  private _handleTouchMove: (e: TouchEvent) => void;
+  private _handleTouchEnd: () => void;
+  private _handleKeyDown: (e: KeyboardEvent) => void;
+
+  constructor(container: HTMLDivElement) {
+    this.container = container;
+    
+    // Bind handlers to preserve 'this' context
+    this._handleWheel = (e: WheelEvent) => {
+      if (this.isPaused) return;
+      this.targetWheelDeltaY += e.deltaY * 0.00015; 
+      this.targetWheelDeltaY = Math.min(Math.max(this.targetWheelDeltaY, -2), 2);
+      this.wheelDirection = e.deltaY > 0 ? 1 : -1;
+    };
+
+    this._handleMouseMove = (e: MouseEvent) => {
+      // 1. Raycaster normalized mouse mapping using container bounding box
+      const rect = this.container.getBoundingClientRect();
+      this.normalizedMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      this.normalizedMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // 2. Click-drag track velocity updates (Vertical movement only)
+      if (this.isDragging) {
+        const movementY = -(e.clientY - this.lastTouchY) * 0.5;
+        this.targetWheelDeltaY -= movementY * 0.003;
+        this.targetWheelDeltaY = Math.min(Math.max(this.targetWheelDeltaY, -2), 2);
+        this.wheelDirection = movementY < 0 ? 1 : -1;
+        this.touchVelocityY = movementY;
+      }
+      this.lastTouchY = e.clientY;
+    };
+
+    this._handleMouseDown = (e: MouseEvent) => {
+      if (this.isPaused) return;
+      this.isDragging = true;
+      this.touchStartY = e.clientY;
+      this.lastTouchY = e.clientY;
+      this.touchVelocityY = 0;
+    };
+
+    this._handleMouseUp = () => {
+      if (this.isDragging) {
+        this.targetWheelDeltaY -= this.touchVelocityY * 0.05;
+        this.targetWheelDeltaY = Math.min(Math.max(this.targetWheelDeltaY, -2), 2);
+      }
+      this.isDragging = false;
+      this.touchVelocityY = 0;
+    };
+
+    this._handleTouchStart = (e: TouchEvent) => {
+      if (this.isPaused) return;
+      const touch = e.touches[0];
+      if (touch) {
+        this.touchStartY = touch.clientY;
+        this.lastTouchY = touch.clientY;
+        this.touchVelocityY = 0;
+        this.isDragging = false;
+      }
+    };
+
+    this._handleTouchMove = (e: TouchEvent) => {
+      if (this.isPaused) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      const deltaY = touch.clientY - this.touchStartY;
+      
+      if (!this.isDragging && Math.abs(deltaY) > this.DRAG_THRESHOLD) {
+        this.isDragging = true;
+      }
+      
+      if (this.isDragging) {
+        e.preventDefault(); // Lock viewport scrolling while dragging the WebGL canvas
+        const movementY = -(touch.clientY - this.lastTouchY) * 0.5;
+        
+        this.targetWheelDeltaY -= movementY * 0.003;
+        this.targetWheelDeltaY = Math.min(Math.max(this.targetWheelDeltaY, -2), 2);
+        this.wheelDirection = movementY < 0 ? 1 : -1;
+        this.touchVelocityY = movementY;
+      }
+      this.lastTouchY = touch.clientY;
+    };
+
+    this._handleTouchEnd = () => {
+      if (this.isDragging) {
+        this.targetWheelDeltaY -= this.touchVelocityY * 0.05;
+        this.targetWheelDeltaY = Math.min(Math.max(this.targetWheelDeltaY, -2), 2);
+      }
+      this.isDragging = false;
+      this.touchVelocityY = 0;
+    };
+
+    this._handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        this.targetWheelDeltaY += 0.35;
+        this.wheelDirection = 1;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        this.targetWheelDeltaY -= 0.35;
+        this.wheelDirection = -1;
+      }
+    };
+
+    this.initListeners();
+  }
+
+  initListeners() {
+    this.container.addEventListener("wheel", this._handleWheel, { passive: true });
+    this.container.addEventListener("mousedown", this._handleMouseDown);
+    window.addEventListener("mousemove", this._handleMouseMove);
+    window.addEventListener("mouseup", this._handleMouseUp);
+    window.addEventListener("keydown", this._handleKeyDown);
+
+    this.container.addEventListener("touchstart", this._handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", this._handleTouchMove, { passive: false });
+    window.addEventListener("touchend", this._handleTouchEnd);
+  }
+
+  destroy() {
+    this.container.removeEventListener("wheel", this._handleWheel);
+    this.container.removeEventListener("mousedown", this._handleMouseDown);
+    window.removeEventListener("mousemove", this._handleMouseMove);
+    window.removeEventListener("mouseup", this._handleMouseUp);
+    window.removeEventListener("keydown", this._handleKeyDown);
+
+    this.container.removeEventListener("touchstart", this._handleTouchStart);
+    window.removeEventListener("touchmove", this._handleTouchMove);
+    window.removeEventListener("touchend", this._handleTouchEnd);
+  }
+
+  update() {
+    if (this.isPaused) return;
+    
+    this.wheelDeltaY += (this.targetWheelDeltaY - this.wheelDeltaY) * this.easing;
+    this.scrollOffset += this.wheelDeltaY;
+    
+    if (Math.abs(this.targetWheelDeltaY) < this.minWheelSpeed) {
+      this.targetWheelDeltaY = this.wheelDirection * this.minWheelSpeed;
+    }
+    this.targetWheelDeltaY *= 0.9; 
+  }
 }
 
 export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
@@ -200,7 +349,7 @@ export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
   
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const controlsRef = useRef<HelixControls>(new HelixControls());
+  const controlsRef = useRef<HelixControls | null>(null);
   
   // React State for interactive HUD readout
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -228,11 +377,17 @@ export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const controls = controlsRef.current;
+    const controls = new HelixControls(container);
+    controlsRef.current = controls;
     const texturesToDispose: THREE.Texture[] = [];
 
+    interface SpringMesh extends THREE.Mesh {
+      zoomVelocity: number;
+      revealVelocity: number;
+    }
+
     // Create plane meshes
-    const meshes: THREE.Mesh[] = [];
+    const meshes: SpringMesh[] = [];
     const totalCards = COMBINED_ITEMS.length;
     // 32 Width cuts allow flexible bending without tearing edges
     const geometry = new THREE.PlaneGeometry(1.7, 1.0, 32, 2);
@@ -259,7 +414,9 @@ export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
         transparent: true
       });
 
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(geometry, material) as SpringMesh;
+      mesh.zoomVelocity = 0;
+      mesh.revealVelocity = 0;
       // Cache the local index for raycast matching
       mesh.userData = { id: item.id, index };
       scene.add(mesh);
@@ -283,84 +440,8 @@ export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
     });
 
     const raycaster = new THREE.Raycaster();
-    let hoveredMesh: THREE.Mesh | null = null;
 
-    // 2. EVENT BINDINGS
-    const onWheel = (e: WheelEvent) => {
-      // Absorb the speed multiplier safely
-      controls.targetWheelDeltaY += e.deltaY * 0.00015;
-      controls.targetWheelDeltaY = clamp(controls.targetWheelDeltaY, -2, 2);
-      controls.wheelDirection = e.deltaY > 0 ? 1 : -1;
-    };
-
-    const onDown = (clientX: number) => {
-      controls.touchStartX = clientX;
-      controls.lastTouchX = clientX;
-      controls.touchVelocityX = 0;
-      controls.isDragging = false;
-    };
-
-    const onMove = (clientX: number) => {
-      const deltaX = clientX - controls.touchStartX;
-      if (!controls.isDragging && Math.abs(deltaX) > controls.DRAG_THRESHOLD) {
-        controls.isDragging = true;
-      }
-
-      if (controls.isDragging) {
-        const movementX = -(clientX - controls.lastTouchX) * 0.5;
-        controls.targetWheelDeltaY -= movementX * 0.003;
-        controls.targetWheelDeltaY = clamp(controls.targetWheelDeltaY, -2, 2);
-        controls.wheelDirection = movementX < 0 ? 1 : -1;
-        controls.touchVelocityX = movementX;
-      }
-      controls.lastTouchX = clientX;
-    };
-
-    const onUp = () => {
-      if (controls.isDragging) {
-        controls.targetWheelDeltaY -= controls.touchVelocityX * 0.002;
-        controls.targetWheelDeltaY = clamp(controls.targetWheelDeltaY, -2, 2);
-      }
-      controls.isDragging = false;
-      controls.touchVelocityX = 0;
-    };
-
-    // Keyboard bindings for accessibility / arrows
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        controls.targetWheelDeltaY += 0.35;
-        controls.wheelDirection = 1;
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        controls.targetWheelDeltaY -= 0.35;
-        controls.wheelDirection = -1;
-      }
-    };
-
-    const handleMouseWheel = (e: WheelEvent) => onWheel(e);
-    const handleMouseDown = (e: MouseEvent) => onDown(e.clientX);
-    const handleMouseMove = (e: MouseEvent) => {
-      onMove(e.clientX);
-      // Map Normalized Raycast Coordinates
-      const rect = container.getBoundingClientRect();
-      controls.normalizedMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      controls.normalizedMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    };
-    const handleMouseUp = () => onUp();
-
-    const handleTouchStart = (e: TouchEvent) => onDown(e.touches[0].clientX);
-    const handleTouchMove = (e: TouchEvent) => onMove(e.touches[0].clientX);
-    const handleTouchEnd = () => onUp();
-
-    // Attach listeners
-    container.addEventListener("wheel", handleMouseWheel, { passive: true });
-    container.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    window.addEventListener("keydown", onKeyDown);
-
-    container.addEventListener("touchstart", handleTouchStart, { passive: true });
-    container.addEventListener("touchmove", handleTouchMove, { passive: true });
-    container.addEventListener("touchend", handleTouchEnd);
+    // 2. EVENT BINDINGS (Now fully managed internally by HelixControls)
 
     // 3. RESPONSIVE RESIZE OBSERVEE
     const resizeObserver = new ResizeObserver((entries) => {
@@ -402,30 +483,55 @@ export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
       raycaster.setFromCamera(controls.normalizedMouse, camera);
       const intersects = raycaster.intersectObjects(meshes);
 
+      let validIntersection = false;
+      let targetHitMesh: SpringMesh | null = null;
+
       if (intersects.length > 0) {
-        const hit = intersects[0].object as THREE.Mesh;
-        if (hoveredMesh !== hit) {
-          if (hoveredMesh) {
-            const m = hoveredMesh.material as THREE.ShaderMaterial;
-            m.uniforms.uZoom.value = 1.0;
-            m.uniforms.uColorStrength.value = 0.0;
-          }
-          hoveredMesh = hit;
-          setHoveredIdx(hit.userData.index);
+        const candidateMesh = intersects[0].object as SpringMesh;
+        // Filter: Exclude bottom-most card (Y ≈ -0.7) so the zone starts higher up (from Y >= -0.25)
+        if (candidateMesh.position.y >= -0.25 && candidateMesh.position.y <= 1.85) {
+          validIntersection = true;
+          targetHitMesh = candidateMesh;
         }
-        const mat = hoveredMesh.material as THREE.ShaderMaterial;
-        mat.uniforms.uZoom.value = THREE.MathUtils.lerp(mat.uniforms.uZoom.value, 1.05, 0.1);
-        mat.uniforms.uColorStrength.value = THREE.MathUtils.lerp(mat.uniforms.uColorStrength.value, 0.25, 0.1);
+      }
+
+      // Establish targets and animate spring dynamics for all meshes
+      meshes.forEach((mesh) => {
+        const isTarget = (validIntersection && mesh === targetHitMesh);
+        
+        // Exact Pacome targets: card shrinks to 0.95, texture grows to 1.05
+        const targetZoom = isTarget ? 1.05 : 1.0;
+        const targetReveal = isTarget ? 0.95 : 1.0;
+        const targetColor = isTarget ? 0.2 : 0.0;
+
+        const mat = mesh.material as THREE.ShaderMaterial;
+
+        // 2. Elite Spring Dynamics Formula (Stiffness = 180, Damping = 12)
+        // Zoom Spring
+        const zoomForce = (targetZoom - mat.uniforms.uZoom.value) * 180 - mesh.zoomVelocity * 12;
+        mesh.zoomVelocity += zoomForce * 0.016; // Based on average frame clock step delta
+        mat.uniforms.uZoom.value += mesh.zoomVelocity * 0.016;
+
+        // Reveal Boundary Contract Spring
+        const revealForce = (targetReveal - mat.uniforms.uRevealProgress.value) * 180 - mesh.revealVelocity * 12;
+        mesh.revealVelocity += revealForce * 0.016;
+        mat.uniforms.uRevealProgress.value += mesh.revealVelocity * 0.016;
+
+        // Standard Smooth Shadow Blend Overlay Lerp
+        mat.uniforms.uColorStrength.value = THREE.MathUtils.lerp(mat.uniforms.uColorStrength.value, targetColor, 0.1);
+      });
+
+      // Update interactive HUD state triggers
+      const activeHoveredIdx = (validIntersection && targetHitMesh) ? targetHitMesh.userData.index : null;
+      if (hoveredIdx !== activeHoveredIdx) {
+        setHoveredIdx(activeHoveredIdx);
+      }
+
+      // Update standard canvas cursor state metrics based on active hits
+      if (validIntersection && targetHitMesh) {
+        document.body.style.cursor = "pointer";
       } else {
-        if (hoveredMesh) {
-          const mat = hoveredMesh.material as THREE.ShaderMaterial;
-          mat.uniforms.uZoom.value = THREE.MathUtils.lerp(mat.uniforms.uZoom.value, 1.0, 0.1);
-          mat.uniforms.uColorStrength.value = THREE.MathUtils.lerp(mat.uniforms.uColorStrength.value, 0.0, 0.1);
-          if (Math.abs(mat.uniforms.uZoom.value - 1.0) < 0.001) {
-            hoveredMesh = null;
-            setHoveredIdx(null);
-          }
-        }
+        document.body.style.cursor = "default";
       }
 
       // Track card coordinates / rotation wrapping
@@ -469,15 +575,7 @@ export const SpiralGallery = forwardRef<HTMLDivElement>((_, ref) => {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
 
-      container.removeEventListener("wheel", handleMouseWheel);
-      container.removeEventListener("mousedown", handleMouseDown);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("keydown", onKeyDown);
-
-      container.removeEventListener("touchstart", handleTouchStart);
-      container.removeEventListener("touchmove", handleTouchMove);
-      container.removeEventListener("touchend", handleTouchEnd);
+      controls.destroy();
 
       // Recursive GPU memory release
       geometry.dispose();
